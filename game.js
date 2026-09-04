@@ -1,25 +1,4 @@
-// Initialize Peer with error handling
-let peer;
-let peerReady = false;
-
-function initPeer() {
-    peer = new Peer({
-        host: '0.peerjs.com',
-        port: 443,
-        secure: true
-    });
-
-    peer.on('open', (id) => {
-        console.log('Peer ID:', id);
-        peerReady = true;
-    });
-
-    peer.on('error', (err) => {
-        console.error('Peer error:', err);
-        alert('⚠️ Connection error. Refresh and try again.');
-    });
-}
-
+// Simple localStorage-based multiplayer system
 class GameManager {
     constructor() {
         this.roomCode = null;
@@ -27,9 +6,8 @@ class GameManager {
         this.playerName = null;
         this.isHost = false;
         this.players = [];
-        this.dataConnections = {};
-        this.peerId = null;
         this.pollInterval = null;
+        this.lastUpdate = 0;
     }
 
     generateRoomCode() {
@@ -41,131 +19,114 @@ class GameManager {
             return { success: false, error: 'Player name cannot be empty' };
         }
 
-        if (!peerReady || !peer.id) {
-            return { success: false, error: 'Connection not ready. Please wait and try again.' };
-        }
-
         this.roomCode = this.generateRoomCode();
         this.playerNumber = 1;
         this.playerName = playerName.trim();
         this.isHost = true;
-        this.peerId = peer.id;
         this.players = [
             {
                 playerNumber: 1,
                 name: playerName.trim(),
-                peerId: this.peerId
+                joinedAt: Date.now()
             }
         ];
 
-        // Listen for incoming connections
-        peer.off('connection'); // Remove previous listeners
-        peer.on('connection', (conn) => {
-            this.handleNewConnection(conn);
-        });
+        // Save to localStorage
+        const roomData = {
+            code: this.roomCode,
+            host: this.playerName,
+            players: this.players,
+            createdAt: Date.now()
+        };
+        localStorage.setItem(`room_${this.roomCode}`, JSON.stringify(roomData));
 
         return {
             success: true,
             roomCode: this.roomCode,
-            playerNumber: 1,
-            peerId: this.peerId
+            playerNumber: 1
         };
     }
 
-    joinRoom(roomCode, playerName, hostPeerId) {
+    joinRoom(roomCode, playerName) {
         if (!playerName.trim()) {
             return { success: false, error: 'Player name cannot be empty' };
         }
         if (!roomCode.trim()) {
             return { success: false, error: 'Room code cannot be empty' };
         }
-        if (!hostPeerId) {
-            return { success: false, error: 'Host Peer ID required' };
+
+        // Check if room exists
+        const roomKey = `room_${roomCode}`;
+        const roomData = localStorage.getItem(roomKey);
+        
+        if (!roomData) {
+            return { success: false, error: 'Room not found. Check the room code.' };
         }
 
-        if (!peerReady || !peer.id) {
-            return { success: false, error: 'Connection not ready. Please wait and try again.' };
+        const room = JSON.parse(roomData);
+        
+        if (room.players.length >= 7) {
+            return { success: false, error: 'Room is full (max 7 players)' };
         }
 
+        // Add player
         this.roomCode = roomCode;
         this.playerName = playerName.trim();
         this.isHost = false;
-        this.peerId = peer.id;
-
-        // Connect to host
-        const conn = peer.connect(hostPeerId);
-        conn.on('open', () => {
-            console.log('Connected to host');
-            conn.send({
-                type: 'join',
-                playerName: this.playerName
-            });
+        this.playerNumber = room.players.length + 1;
+        
+        room.players.push({
+            playerNumber: this.playerNumber,
+            name: this.playerName,
+            joinedAt: Date.now()
         });
-        conn.on('data', (data) => this.handleHostData(data));
-        conn.on('error', (err) => console.error('Connection error:', err));
 
-        this.dataConnections['host'] = conn;
+        // Update room in localStorage
+        localStorage.setItem(roomKey, JSON.stringify(room));
+        this.players = room.players;
 
         return {
             success: true,
-            roomCode: roomCode
+            roomCode: roomCode,
+            playerNumber: this.playerNumber
         };
     }
 
-    handleNewConnection(conn) {
-        console.log('New connection from:', conn.peer);
+    getRoomStatus() {
+        if (!this.roomCode) return null;
+
+        const roomKey = `room_${this.roomCode}`;
+        const roomData = localStorage.getItem(roomKey);
         
-        conn.on('data', (data) => {
-            if (data.type === 'join') {
-                // Assign player number
-                const playerNumber = this.players.length + 1;
-                this.players.push({
-                    playerNumber: playerNumber,
-                    name: data.playerName,
-                    peerId: conn.peer
-                });
+        if (!roomData) return null;
 
-                // Send player list to joining player
-                conn.send({
-                    type: 'player_joined',
-                    playerNumber: playerNumber,
-                    players: this.players
-                });
-
-                // Broadcast to all other players
-                for (const key in this.dataConnections) {
-                    if (key !== conn.peer && this.dataConnections[key].open) {
-                        this.dataConnections[key].send({
-                            type: 'player_list_update',
-                            players: this.players
-                        });
-                    }
-                }
-            }
-        });
-
-        this.dataConnections[conn.peer] = conn;
-    }
-
-    handleHostData(data) {
-        if (data.type === 'player_joined') {
-            this.playerNumber = data.playerNumber;
-            this.players = data.players;
-        } else if (data.type === 'player_list_update') {
-            this.players = data.players;
-        }
+        const room = JSON.parse(roomData);
+        this.players = room.players;
+        return room;
     }
 
     leaveRoom() {
-        // Close all connections
-        for (const key in this.dataConnections) {
-            this.dataConnections[key].close();
+        if (!this.roomCode) return;
+
+        const roomKey = `room_${this.roomCode}`;
+        const roomData = localStorage.getItem(roomKey);
+        
+        if (roomData) {
+            const room = JSON.parse(roomData);
+            room.players = room.players.filter(p => p.name !== this.playerName);
+            
+            if (room.players.length === 0) {
+                localStorage.removeItem(roomKey);
+            } else {
+                localStorage.setItem(roomKey, JSON.stringify(room));
+            }
         }
-        this.dataConnections = {};
-        this.players = [];
+
         this.roomCode = null;
         this.playerNumber = null;
         this.playerName = null;
+        this.players = [];
+        this.isHost = false;
     }
 }
 
@@ -200,136 +161,4 @@ class UIManager {
         if (result.success) {
             this.showLobby();
             this.startPolling();
-            this.showStatus(`✅ Room ${result.roomCode} created!`);
-            setTimeout(() => {
-                this.showPeerIdForShare(result.roomCode, result.peerId);
-            }, 500);
-        } else {
-            alert('❌ ' + result.error);
-        }
-    }
-
-    showPeerIdForShare(roomCode, peerId) {
-        alert(`🎮 ROOM CREATED!\n\nRoom Code: ${roomCode}\n\nYour Peer ID:\n${peerId}\n\nShare both with your friends!`);
-    }
-
-    toggleJoinForm() {
-        document.getElementById('joinFormContainer').classList.toggle('hidden');
-    }
-
-    handleJoinRoom() {
-        const playerName = document.getElementById('playerName').value;
-        const roomCode = document.getElementById('roomCode').value;
-        const hostPeerId = prompt('Enter host\'s Peer ID:');
-
-        if (hostPeerId) {
-            const result = this.manager.joinRoom(roomCode, playerName, hostPeerId);
-            if (result.success) {
-                this.showLobby();
-                this.startPolling();
-                this.showStatus(`✅ Connecting to room ${roomCode}...`);
-            } else {
-                alert('❌ ' + result.error);
-            }
-        }
-    }
-
-    handleStartGame() {
-        if (this.manager.isHost && this.manager.players.length >= 2) {
-            alert(`🎮 Game started with ${this.manager.players.length} players!`);
-        }
-    }
-
-    handleLeaveRoom() {
-        this.manager.leaveRoom();
-        this.showLoginScreen();
-        this.stopPolling();
-        document.getElementById('playerName').value = '';
-        document.getElementById('roomCode').value = '';
-    }
-
-    showLoginScreen() {
-        document.getElementById('loginScreen').classList.add('active');
-        document.getElementById('lobbyScreen').classList.remove('active');
-    }
-
-    showLobby() {
-        document.getElementById('loginScreen').classList.remove('active');
-        document.getElementById('lobbyScreen').classList.add('active');
-
-        document.getElementById('playerNumber').textContent = this.manager.playerNumber;
-        document.getElementById('roomCodeDisplay').textContent = this.manager.roomCode;
-
-        if (this.manager.isHost) {
-            document.getElementById('roomCodeInstruction').textContent = '(Share with other players)';
-        } else {
-            document.getElementById('roomCodeInstruction').textContent = '(You\'re in this room)';
-        }
-
-        this.updatePlayersList();
-    }
-
-    updatePlayersList() {
-        const playersList = document.getElementById('playersList');
-        const playerCount = document.getElementById('playerCount');
-        const startGameBtn = document.getElementById('startGameBtn');
-
-        playersList.innerHTML = '';
-        playerCount.textContent = this.manager.players.length;
-
-        this.manager.players.forEach(player => {
-            const playerDiv = document.createElement('div');
-            playerDiv.className = 'player-item';
-            if (player.playerNumber === this.manager.playerNumber) {
-                playerDiv.classList.add('self');
-            }
-            playerDiv.innerHTML = `
-                <div class="player-number">${player.playerNumber}</div>
-                <div class="player-name">${player.name}</div>
-                ${player.playerNumber === this.manager.playerNumber ? '<span class="you-badge">(You)</span>' : ''}
-            `;
-            playersList.appendChild(playerDiv);
-        });
-
-        if (this.manager.isHost && this.manager.players.length >= 2) {
-            startGameBtn.disabled = false;
-            startGameBtn.textContent = `Start Game (${this.manager.players.length}/7 Players)`;
-        } else if (this.manager.isHost) {
-            startGameBtn.textContent = `Waiting for players... (${this.manager.players.length}/7)`;
-            startGameBtn.disabled = true;
-        } else {
-            startGameBtn.textContent = 'Waiting for host to start...';
-            startGameBtn.disabled = true;
-        }
-    }
-
-    startPolling() {
-        this.pollInterval = setInterval(() => {
-            this.updatePlayersList();
-        }, 500);
-    }
-
-    stopPolling() {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-        }
-    }
-
-    showStatus(message) {
-        const statusEl = document.getElementById('statusMessage');
-        statusEl.textContent = message;
-        setTimeout(() => {
-            statusEl.textContent = '';
-        }, 5000);
-    }
-}
-
-let uiManager;
-
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    initPeer();
-    setTimeout(() => {
-        uiManager = new UIManager(gameManager);
-    }, 1000);
-});
+            this.showStatus(`✅ Room created! Code: ${result.roomCode}`);\n        } else {\n            alert('❌ ' + result.error);\n        }\n    }\n\n    toggleJoinForm() {\n        document.getElementById('joinFormContainer').classList.toggle('hidden');\n    }\n\n    handleJoinRoom() {\n        const playerName = document.getElementById('playerName').value;\n        const roomCode = document.getElementById('roomCode').value;\n        const result = this.manager.joinRoom(roomCode, playerName);\n\n        if (result.success) {\n            this.showLobby();\n            this.startPolling();\n            this.showStatus(`✅ Joined room ${roomCode}!`);\n        } else {\n            alert('❌ ' + result.error);\n        }\n    }\n\n    handleStartGame() {\n        if (this.manager.isHost && this.manager.players.length >= 2) {\n            alert(`🎮 Game started with ${this.manager.players.length} players!`);\n        }\n    }\n\n    handleLeaveRoom() {\n        this.manager.leaveRoom();\n        this.showLoginScreen();\n        this.stopPolling();\n        document.getElementById('playerName').value = '';\n        document.getElementById('roomCode').value = '';\n    }\n\n    showLoginScreen() {\n        document.getElementById('loginScreen').classList.add('active');\n        document.getElementById('lobbyScreen').classList.remove('active');\n    }\n\n    showLobby() {\n        document.getElementById('loginScreen').classList.remove('active');\n        document.getElementById('lobbyScreen').classList.add('active');\n\n        document.getElementById('playerNumber').textContent = this.manager.playerNumber;\n        document.getElementById('roomCodeDisplay').textContent = this.manager.roomCode;\n\n        if (this.manager.isHost) {\n            document.getElementById('roomCodeInstruction').textContent = '(Share this with other players)';\n        } else {\n            document.getElementById('roomCodeInstruction').textContent = '(You joined this room)';\n        }\n\n        this.updatePlayersList();\n    }\n\n    updatePlayersList() {\n        const playersList = document.getElementById('playersList');\n        const playerCount = document.getElementById('playerCount');\n        const startGameBtn = document.getElementById('startGameBtn');\n\n        playersList.innerHTML = '';\n        playerCount.textContent = this.manager.players.length;\n\n        this.manager.players.forEach(player => {\n            const playerDiv = document.createElement('div');\n            playerDiv.className = 'player-item';\n            if (player.playerNumber === this.manager.playerNumber) {\n                playerDiv.classList.add('self');\n            }\n            playerDiv.innerHTML = `\n                <div class=\"player-number\">${player.playerNumber}</div>\n                <div class=\"player-name\">${player.name}</div>\n                ${player.playerNumber === this.manager.playerNumber ? '<span class=\"you-badge\">(You)</span>' : ''}\n            `;\n            playersList.appendChild(playerDiv);\n        });\n\n        if (this.manager.isHost && this.manager.players.length >= 2) {\n            startGameBtn.disabled = false;\n            startGameBtn.textContent = `Start Game (${this.manager.players.length}/7 Players)`;\n        } else if (this.manager.isHost) {\n            startGameBtn.textContent = `Waiting for players... (${this.manager.players.length}/7)`;\n            startGameBtn.disabled = true;\n        } else {\n            startGameBtn.textContent = 'Waiting for host to start...';\n            startGameBtn.disabled = true;\n        }\n    }\n\n    startPolling() {\n        this.pollInterval = setInterval(() => {\n            this.manager.getRoomStatus();\n            this.updatePlayersList();\n        }, 500);\n    }\n\n    stopPolling() {\n        if (this.pollInterval) {\n            clearInterval(this.pollInterval);\n        }\n    }\n\n    showStatus(message) {\n        const statusEl = document.getElementById('statusMessage');\n        statusEl.textContent = message;\n        setTimeout(() => {\n            statusEl.textContent = '';\n        }, 5000);\n    }\n}\n\nlet uiManager;\n\ndocument.addEventListener('DOMContentLoaded', () => {\n    uiManager = new UIManager(gameManager);\n});\n
