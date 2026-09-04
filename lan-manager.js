@@ -5,15 +5,9 @@ class LANRoomManager {
         this.playerName = null;
         this.isHost = false;
         this.players = [];
-        this.hostIP = null;
         this.pollInterval = null;
-        this.rooms = {}; // Local storage for rooms
+        this.rooms = {}; // Shared room storage
         this.loadRoomsFromStorage();
-    }
-
-    // Get local IP from window location
-    getLocalIP() {
-        return window.location.hostname;
     }
 
     // Generate random 4-digit room code
@@ -21,7 +15,7 @@ class LANRoomManager {
         return Math.floor(1000 + Math.random() * 9000).toString();
     }
 
-    // Load rooms from localStorage
+    // Load rooms from localStorage (shared across all tabs/windows on same device)
     loadRoomsFromStorage() {
         try {
             const stored = localStorage.getItem('7wonders_rooms');
@@ -47,11 +41,9 @@ class LANRoomManager {
         }
 
         const roomCode = this.generateRoomCode();
-        const localIP = this.getLocalIP();
 
         this.rooms[roomCode] = {
             code: roomCode,
-            hostIP: localIP,
             createdAt: Date.now(),
             players: [
                 {
@@ -68,19 +60,17 @@ class LANRoomManager {
         this.playerNumber = 1;
         this.playerName = playerName.trim();
         this.isHost = true;
-        this.hostIP = localIP;
         this.players = this.rooms[roomCode].players;
 
         return {
             success: true,
             roomCode: roomCode,
-            playerNumber: 1,
-            hostIP: localIP
+            playerNumber: 1
         };
     }
 
     // Join an existing room
-    joinRoom(hostIP, roomCode, playerName) {
+    joinRoom(roomCode, playerName) {
         if (!playerName.trim()) {
             return { success: false, error: 'Player name cannot be empty' };
         }
@@ -90,7 +80,7 @@ class LANRoomManager {
 
         const room = this.rooms[roomCode];
         if (!room) {
-            return { success: false, error: 'Room not found' };
+            return { success: false, error: 'Room not found. Make sure you\'re on the same network and room code is correct.' };
         }
 
         if (room.players.length >= 7) {
@@ -110,7 +100,6 @@ class LANRoomManager {
         this.playerNumber = playerNumber;
         this.playerName = playerName.trim();
         this.isHost = false;
-        this.hostIP = hostIP;
         this.players = room.players;
 
         return {
@@ -133,8 +122,7 @@ class LANRoomManager {
         return {
             success: true,
             roomCode: this.roomCode,
-            players: room.players,
-            hostIP: room.hostIP
+            players: room.players
         };
     }
 
@@ -219,7 +207,7 @@ class UIManager {
         if (result.success) {
             this.showLobby();
             this.startPolling();
-            this.showStatus(`✅ Room created! Code: ${result.roomCode}`);
+            this.showStatus(`✅ Room created! Share code: ${result.roomCode}`);
         } else {
             alert('❌ ' + result.error);
         }
@@ -231,10 +219,9 @@ class UIManager {
 
     handleJoinRoom() {
         const playerName = document.getElementById('playerName').value;
-        const hostIP = document.getElementById('hostIP').value;
         const roomCode = document.getElementById('roomCode').value;
 
-        const result = this.manager.joinRoom(hostIP, roomCode, playerName);
+        const result = this.manager.joinRoom(roomCode, playerName);
 
         if (result.success) {
             this.showLobby();
@@ -257,7 +244,6 @@ class UIManager {
         this.showLoginScreen();
         this.stopPolling();
         document.getElementById('playerName').value = '';
-        document.getElementById('hostIP').value = '';
         document.getElementById('roomCode').value = '';
     }
 
@@ -272,12 +258,11 @@ class UIManager {
 
         document.getElementById('playerNumber').textContent = this.manager.playerNumber;
         document.getElementById('roomCodeDisplay').textContent = this.manager.roomCode;
-        document.getElementById('playerIP').textContent = this.manager.hostIP;
 
         if (this.manager.isHost) {
-            document.getElementById('ipInstruction').textContent = '(Share this with other players to join)';
+            document.getElementById('roomCodeInstruction').textContent = '(Share this code with other players)';
         } else {
-            document.getElementById('ipInstruction').textContent = '(You joined this room)';
+            document.getElementById('roomCodeInstruction').textContent = '(You\'re in this room)';
         }
 
         this.updatePlayersList();
