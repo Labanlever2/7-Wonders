@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7 Wonders - Multiplayer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Login/Join Screen -->
+    <div id="loginScreen" class="screen active">
+        <div class="login-container">
+            <h1>7 Wonders</h1>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="playerName">Player Name:</label>
+                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="roomCode">Room Code (Optional):</label>
+                    <input type="text" id="roomCode" placeholder="e.g., 1937" maxlength="6">
+                </div>
+                <div class="button-group">
+                    <button id="createRoomBtn" class="btn btn-primary">Create Room</button>
+                    <button id="joinRoomBtn" class="btn btn-secondary">Join Room</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Lobby Screen -->
+    <div id="lobbyScreen" class="screen">
+        <div class="lobby-container">
+            <div class="player-info">
+                <div class="info-card">
+                    <h2>Your Player Number</h2>
+                    <div class="large-text" id="playerNumber">-</div>
+                </div>
+                <div class="info-card">
+                    <h2>Room Code</h2>
+                    <div class="large-text" id="roomCodeDisplay">-</div>
+                </div>
+            </div>
+
+            <div class="players-section">
+                <h2>Players in Room</h2>
+                <div id="playersList" class="players-list">
+                    <!-- Players will be listed here dynamically -->
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="startGameBtn" class="btn btn-primary" disabled>Start Game (Waiting for players...)</button>
+                <button id="leaveRoomBtn" class="btn btn-danger">Leave Room</button>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+    </div>
+
+    <script src="multiplayer.js"></script>
+</body>
+</html>
