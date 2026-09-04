@@ -201,7 +201,7 @@ body {
     font-family: 'Courier New', monospace;
 }
 
-#ipInstruction {
+#roomCodeInstruction {
     display: block;
     font-size: 11px;
     margin-top: 8px;
@@ -281,6 +281,7 @@ body {
     font-weight: 600;
     min-height: 20px;
     animation: fadeIn 0.3s ease-in;
+    white-space: pre-wrap;
 }
 
 /* Responsive */
