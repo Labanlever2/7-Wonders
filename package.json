@@ -1,0 +1,13 @@
+{
+  "name": "7-wonders-multiplayer",
+  "version": "1.0.0",
+  "description": "LAN-based multiplayer 7 Wonders game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["7wonders", "multiplayer", "lan", "game"],
+  "author": "",
+  "license": "MIT"
+}
