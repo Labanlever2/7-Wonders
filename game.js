@@ -210,4 +210,126 @@ class UIManager {
     }
 
     showPeerIdForShare(roomCode, peerId) {
-        alert(`🎮 ROOM CREATED!\\n\\nRoom Code: ${roomCode}\\n\\nYour Peer ID:\\n${peerId}\\n\\nShare both with your friends!`);\n    }\n\n    toggleJoinForm() {\n        document.getElementById('joinFormContainer').classList.toggle('hidden');\n    }\n\n    handleJoinRoom() {\n        const playerName = document.getElementById('playerName').value;\n        const roomCode = document.getElementById('roomCode').value;\n        const hostPeerId = prompt('Enter host\\'s Peer ID:');\n\n        if (hostPeerId) {\n            const result = this.manager.joinRoom(roomCode, playerName, hostPeerId);\n            if (result.success) {\n                this.showLobby();\n                this.startPolling();\n                this.showStatus(`✅ Connecting to room ${roomCode}...`);\n            } else {\n                alert('❌ ' + result.error);\n            }\n        }\n    }\n\n    handleStartGame() {\n        if (this.manager.isHost && this.manager.players.length >= 2) {\n            alert(`🎮 Game started with ${this.manager.players.length} players!`);\n        }\n    }\n\n    handleLeaveRoom() {\n        this.manager.leaveRoom();\n        this.showLoginScreen();\n        this.stopPolling();\n        document.getElementById('playerName').value = '';\n        document.getElementById('roomCode').value = '';\n    }\n\n    showLoginScreen() {\n        document.getElementById('loginScreen').classList.add('active');\n        document.getElementById('lobbyScreen').classList.remove('active');\n    }\n\n    showLobby() {\n        document.getElementById('loginScreen').classList.remove('active');\n        document.getElementById('lobbyScreen').classList.add('active');\n\n        document.getElementById('playerNumber').textContent = this.manager.playerNumber;\n        document.getElementById('roomCodeDisplay').textContent = this.manager.roomCode;\n\n        if (this.manager.isHost) {\n            document.getElementById('roomCodeInstruction').textContent = '(Share with other players)';\n        } else {\n            document.getElementById('roomCodeInstruction').textContent = '(You\\'re in this room)';\n        }\n\n        this.updatePlayersList();\n    }\n\n    updatePlayersList() {\n        const playersList = document.getElementById('playersList');\n        const playerCount = document.getElementById('playerCount');\n        const startGameBtn = document.getElementById('startGameBtn');\n\n        playersList.innerHTML = '';\n        playerCount.textContent = this.manager.players.length;\n\n        this.manager.players.forEach(player => {\n            const playerDiv = document.createElement('div');\n            playerDiv.className = 'player-item';\n            if (player.playerNumber === this.manager.playerNumber) {\n                playerDiv.classList.add('self');\n            }\n            playerDiv.innerHTML = `\n                <div class=\"player-number\">${player.playerNumber}</div>\n                <div class=\"player-name\">${player.name}</div>\n                ${player.playerNumber === this.manager.playerNumber ? '<span class=\"you-badge\">(You)</span>' : ''}\n            `;\n            playersList.appendChild(playerDiv);\n        });\n\n        if (this.manager.isHost && this.manager.players.length >= 2) {\n            startGameBtn.disabled = false;\n            startGameBtn.textContent = `Start Game (${this.manager.players.length}/7 Players)`;\n        } else if (this.manager.isHost) {\n            startGameBtn.textContent = `Waiting for players... (${this.manager.players.length}/7)`;\n            startGameBtn.disabled = true;\n        } else {\n            startGameBtn.textContent = 'Waiting for host to start...';\n            startGameBtn.disabled = true;\n        }\n    }\n\n    startPolling() {\n        this.pollInterval = setInterval(() => {\n            this.updatePlayersList();\n        }, 500);\n    }\n\n    stopPolling() {\n        if (this.pollInterval) {\n            clearInterval(this.pollInterval);\n        }\n    }\n\n    showStatus(message) {\n        const statusEl = document.getElementById('statusMessage');\n        statusEl.textContent = message;\n        setTimeout(() => {\n            statusEl.textContent = '';\n        }, 5000);\n    }\n}\n\nlet uiManager;\n\n// Initialize everything when DOM is ready\ndocument.addEventListener('DOMContentLoaded', () => {\n    initPeer();\n    setTimeout(() => {\n        uiManager = new UIManager(gameManager);\n    }, 1000);\n});
+        alert(`🎮 ROOM CREATED!\n\nRoom Code: ${roomCode}\n\nYour Peer ID:\n${peerId}\n\nShare both with your friends!`);
+    }
+
+    toggleJoinForm() {
+        document.getElementById('joinFormContainer').classList.toggle('hidden');
+    }
+
+    handleJoinRoom() {
+        const playerName = document.getElementById('playerName').value;
+        const roomCode = document.getElementById('roomCode').value;
+        const hostPeerId = prompt('Enter host\'s Peer ID:');
+
+        if (hostPeerId) {
+            const result = this.manager.joinRoom(roomCode, playerName, hostPeerId);
+            if (result.success) {
+                this.showLobby();
+                this.startPolling();
+                this.showStatus(`✅ Connecting to room ${roomCode}...`);
+            } else {
+                alert('❌ ' + result.error);
+            }
+        }
+    }
+
+    handleStartGame() {
+        if (this.manager.isHost && this.manager.players.length >= 2) {
+            alert(`🎮 Game started with ${this.manager.players.length} players!`);
+        }
+    }
+
+    handleLeaveRoom() {
+        this.manager.leaveRoom();
+        this.showLoginScreen();
+        this.stopPolling();
+        document.getElementById('playerName').value = '';
+        document.getElementById('roomCode').value = '';
+    }
+
+    showLoginScreen() {
+        document.getElementById('loginScreen').classList.add('active');
+        document.getElementById('lobbyScreen').classList.remove('active');
+    }
+
+    showLobby() {
+        document.getElementById('loginScreen').classList.remove('active');
+        document.getElementById('lobbyScreen').classList.add('active');
+
+        document.getElementById('playerNumber').textContent = this.manager.playerNumber;
+        document.getElementById('roomCodeDisplay').textContent = this.manager.roomCode;
+
+        if (this.manager.isHost) {
+            document.getElementById('roomCodeInstruction').textContent = '(Share with other players)';
+        } else {
+            document.getElementById('roomCodeInstruction').textContent = '(You\'re in this room)';
+        }
+
+        this.updatePlayersList();
+    }
+
+    updatePlayersList() {
+        const playersList = document.getElementById('playersList');
+        const playerCount = document.getElementById('playerCount');
+        const startGameBtn = document.getElementById('startGameBtn');
+
+        playersList.innerHTML = '';
+        playerCount.textContent = this.manager.players.length;
+
+        this.manager.players.forEach(player => {
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'player-item';
+            if (player.playerNumber === this.manager.playerNumber) {
+                playerDiv.classList.add('self');
+            }
+            playerDiv.innerHTML = `
+                <div class="player-number">${player.playerNumber}</div>
+                <div class="player-name">${player.name}</div>
+                ${player.playerNumber === this.manager.playerNumber ? '<span class="you-badge">(You)</span>' : ''}
+            `;
+            playersList.appendChild(playerDiv);
+        });
+
+        if (this.manager.isHost && this.manager.players.length >= 2) {
+            startGameBtn.disabled = false;
+            startGameBtn.textContent = `Start Game (${this.manager.players.length}/7 Players)`;
+        } else if (this.manager.isHost) {
+            startGameBtn.textContent = `Waiting for players... (${this.manager.players.length}/7)`;
+            startGameBtn.disabled = true;
+        } else {
+            startGameBtn.textContent = 'Waiting for host to start...';
+            startGameBtn.disabled = true;
+        }
+    }
+
+    startPolling() {
+        this.pollInterval = setInterval(() => {
+            this.updatePlayersList();
+        }, 500);
+    }
+
+    stopPolling() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+        }
+    }
+
+    showStatus(message) {
+        const statusEl = document.getElementById('statusMessage');
+        statusEl.textContent = message;
+        setTimeout(() => {
+            statusEl.textContent = '';
+        }, 5000);
+    }
+}
+
+let uiManager;
+
+// Initialize everything when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    initPeer();
+    setTimeout(() => {
+        uiManager = new UIManager(gameManager);
+    }, 1000);
+});
