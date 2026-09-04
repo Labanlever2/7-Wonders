@@ -23,6 +23,10 @@
                 </div>
                 <div id="joinFormContainer" class="hidden">
                     <div class="form-group">
+                        <label for="hostIP">Host IP Address:</label>
+                        <input type="text" id="hostIP" placeholder="e.g., 192.168.1.100" maxlength="15">
+                    </div>
+                    <div class="form-group">
                         <label for="roomCode">Room Code:</label>
                         <input type="text" id="roomCode" placeholder="e.g., 1937" maxlength="6">
                     </div>
@@ -46,8 +50,8 @@
                     <div class="large-text" id="roomCodeDisplay">-</div>
                 </div>
                 <div class="info-card">
-                    <h2>Host Address</h2>
-                    <div class="address-text" id="hostAddress">-</div>
+                    <h2>Your IP</h2>
+                    <div class="address-text" id="playerIP">-</div>
                     <small id="ipInstruction">(Share this with other players)</small>
                 </div>
             </div>
@@ -68,7 +72,6 @@
         </div>
     </div>
 
-    <script src="server.js"></script>
-    <script src="multiplayer.js"></script>
+    <script src="lan-manager.js"></script>
 </body>
 </html>
